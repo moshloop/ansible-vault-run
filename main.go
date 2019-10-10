@@ -29,19 +29,31 @@ func main() {
 		fmt.Printf("version: %s", version)
 		return
 	}
+
 	vaultFile := os.Getenv("ANSIBLE_VAULT_PASSWORD_FILE")
 	if vaultPass == "" && vaultFile != "" {
-		data, _ := ioutil.ReadFile(vaultFile)
+		os.Stderr.WriteString(fmt.Sprintf("Using vault password file: %s\n", vaultFile))
+		data, err := ioutil.ReadFile(vaultFile)
+		if err != nil {
+			os.Stderr.WriteString(fmt.Sprintf("Unable to read vault file: %v\n", err))
+			os.Exit(-1)
+		}
 		vaultPass = string(data)
 	}
 
 	os.Stderr.WriteString(fmt.Sprintf("Using vault file: %s\n", vaultPath))
-	contents, _ := vault.DecryptFile(vaultPath, vaultPass)
+	contents, err := vault.DecryptFile(vaultPath, vaultPass)
+	if err != nil {
+		os.Stderr.WriteString(fmt.Sprintf("Unable to decrypt: %v\n", err))
+		os.Exit(-1)
+	}
 
 	var data map[string]string
 
 	if err := yaml.Unmarshal([]byte(contents), &data); err != nil {
-		fmt.Println(err)
+		os.Stderr.WriteString(fmt.Sprintf("Unable to unmarshal: %v -> %s\n", err, contents))
+		os.Exit(-1)
+
 	}
 
 	index := 0
@@ -67,13 +79,14 @@ func main() {
 	cmd.Stdout = os.Stdout
 	cmd.Env = environ
 
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println(err)
+	if err := cmd.Run(); err != nil {
+		os.Stderr.WriteString(fmt.Sprintf("Error running: %v \n", err))
+		os.Exit(-1)
 	}
 
 	if !cmd.ProcessState.Success() {
-		fmt.Println("failed to run")
+		os.Stderr.WriteString(fmt.Sprintf("Error running, success not returned: %v \n", err))
+		os.Exit(-1)
 	}
 
 }
