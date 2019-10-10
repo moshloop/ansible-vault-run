@@ -30,22 +30,33 @@ func main() {
 		return
 	}
 
-	vaultFile := os.Getenv("ANSIBLE_VAULT_PASSWORD_FILE")
-	if vaultPass == "" && vaultFile != "" {
-		os.Stderr.WriteString(fmt.Sprintf("Using vault password file: %s\n", vaultFile))
-		data, err := ioutil.ReadFile(vaultFile)
+	var err error
+	var contents string
+	if vaultPath == "-" {
+		data, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			os.Stderr.WriteString(fmt.Sprintf("Unable to read vault file: %v\n", err))
 			os.Exit(-1)
 		}
-		vaultPass = string(data)
-	}
+		contents = string(data)
+	} else {
+		vaultFile := os.Getenv("ANSIBLE_VAULT_PASSWORD_FILE")
+		if vaultPass == "" && vaultFile != "" {
+			os.Stderr.WriteString(fmt.Sprintf("Using vault password file: %s\n", vaultFile))
+			data, err := ioutil.ReadFile(vaultFile)
+			if err != nil {
+				os.Stderr.WriteString(fmt.Sprintf("Unable to read vault file: %v\n", err))
+				os.Exit(-1)
+			}
+			vaultPass = string(data)
+		}
 
-	os.Stderr.WriteString(fmt.Sprintf("Using vault file: %s\n", vaultPath))
-	contents, err := vault.DecryptFile(vaultPath, vaultPass)
-	if err != nil {
-		os.Stderr.WriteString(fmt.Sprintf("Unable to decrypt: %v\n", err))
-		os.Exit(-1)
+		os.Stderr.WriteString(fmt.Sprintf("Using vault file: %s\n", vaultPath))
+		contents, err = vault.DecryptFile(vaultPath, vaultPass)
+		if err != nil {
+			os.Stderr.WriteString(fmt.Sprintf("Unable to decrypt: %v\n", err))
+			os.Exit(-1)
+		}
 	}
 
 	var data map[string]string
